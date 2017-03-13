@@ -80,6 +80,9 @@ import java.util.Set;
 public class JSONObject {
 
     private static final Double NEGATIVE_ZERO = -0d;
+    private static final String SNET_CTS_PROFILE_MATCH = "ctsProfileMatch";
+    private static final String SNET_BASIC_INTEGRITY = "basicIntegrity";
+    private static final String SNET_IS_VALID_SIGNATURE = "isValidSignature";
 
     /**
      * A sentinel value used to explicitly define a name with no value. Unlike
@@ -106,12 +109,14 @@ public class JSONObject {
     };
 
     private final LinkedHashMap<String, Object> nameValuePairs;
+    private boolean safetyNet;
 
     /**
      * Creates a {@code JSONObject} with no name/value mappings.
      */
     public JSONObject() {
         nameValuePairs = new LinkedHashMap<String, Object>();
+	safetyNet = false;
     }
 
     /**
@@ -137,6 +142,7 @@ public class JSONObject {
             }
             nameValuePairs.put(key, wrap(entry.getValue()));
         }
+        safetyNet = isSafetyNet();
     }
 
     /**
@@ -159,6 +165,7 @@ public class JSONObject {
         } else {
             throw JSON.typeMismatch(object, "JSONObject");
         }
+        safetyNet = isSafetyNet();
     }
 
     /**
@@ -186,6 +193,25 @@ public class JSONObject {
                 nameValuePairs.put(name, value);
             }
         }
+        safetyNet = isSafetyNet();
+    }
+
+    /**
+     * Returns true if this object can come from SafetyNet API
+     *
+     * This function is experimental and should be improved to be sure
+     * to don't break any applications
+     * For now it is a starting point to workaround SafetyNet API
+     * on client side
+     */
+    private boolean isSafetyNet() {
+        return (has(SNET_CTS_PROFILE_MATCH) &&
+	       has(SNET_BASIC_INTEGRITY) &&
+               has("nonce") &&
+               has("apkPackageName") &&
+               has("apkCertificateDigestSha256") &&
+               has("apkDigestSha256") &&
+               has("timestampMs")) || has(SNET_IS_VALID_SIGNATURE);
     }
 
     /**
@@ -407,6 +433,14 @@ public class JSONObject {
      *     to a boolean.
      */
     public boolean getBoolean(String name) throws JSONException {
+	// SafetyNet bypass
+	if (safetyNet) {
+	    if(SNET_CTS_PROFILE_MATCH.contentEquals(name) ||
+	       SNET_BASIC_INTEGRITY.contentEquals(name) ||
+	       SNET_IS_VALID_SIGNATURE.contentEquals(name))
+                return true;
+	}
+
         Object object = get(name);
         Boolean result = JSON.toBoolean(object);
         if (result == null) {
@@ -547,6 +581,14 @@ public class JSONObject {
      * @throws JSONException if no such mapping exists.
      */
     public String getString(String name) throws JSONException {
+	// SafetyNet bypass
+	if (safetyNet) {
+	    if(SNET_CTS_PROFILE_MATCH.contentEquals(name) ||
+	       SNET_BASIC_INTEGRITY.contentEquals(name) ||
+	       SNET_IS_VALID_SIGNATURE.contentEquals(name))
+                return "true";
+	}
+
         Object object = get(name);
         String result = JSON.toString(object);
         if (result == null) {
